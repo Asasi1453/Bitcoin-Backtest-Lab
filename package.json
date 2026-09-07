@@ -1,0 +1,44 @@
+{
+  "name": "btc_backtest_platform",
+  "version": "1.0.0",
+  "description": "Bitcoin Lab — canlı BTC araştırma ve backtest platformu",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -k -n API,WEB -c yellow,cyan \"tsx watch server/index.ts\" \"vite\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx server/index.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "express": "^5.2.1",
+    "lightweight-charts": "^5.2.1",
+    "lucide-react": "^1.41.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  }
+}

@@ -1,0 +1,105 @@
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { intervals, type Candle, type Interval } from '../shared/types';
+mkdirSync('data', { recursive: true });
+export const db = new DatabaseSync(process.env.DATABASE_PATH || 'data/bitcoin-lab.sqlite');
+db.exec(
+  'PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS candles (interval TEXT, time INTEGER, open REAL, high REAL, low REAL, close REAL, volume REAL, PRIMARY KEY(interval,time)); CREATE TABLE IF NOT EXISTS backtests (id TEXT PRIMARY KEY, created_at TEXT, payload TEXT);',
+);
+let retryAfter = 0;
+export async function binance(path: string, params: Record<string, string> = {}) {
+  if (Date.now() < retryAfter)
+    throw new Error('Veri sağlayıcının istek sınırına ulaşıldı. Biraz sonra tekrar deneyin.');
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://data-api.binance.vision/api/v3/${path}?${new URLSearchParams({ symbol: 'BTCUSDT', ...params })}`,
+      { signal: AbortSignal.timeout(12000) },
+    );
+  } catch {
+    throw new Error(
+      'Binance bağlantısı kurulamadı. İnternet bağlantınızı kontrol edin veya demo moduna geçin.',
+    );
+  }
+  if (response.status === 429 || response.status === 418) {
+    retryAfter =
+      Date.now() + Math.max(60, Number(response.headers.get('retry-after')) || 60) * 1000;
+    throw new Error('Binance istek sınırı. Lütfen daha sonra tekrar deneyin.');
+  }
+  if (!response.ok) throw new Error(`Binance verisi alınamadı (HTTP ${response.status}).`);
+  return response.json();
+}
+let queue: Promise<unknown> = Promise.resolve();
+export function getCandles(interval: Interval, start: number, end: number): Promise<Candle[]> {
+  const job = queue.then(() => loadCandles(interval, start, end));
+  queue = job.catch(() => {});
+  return job;
+}
+async function loadCandles(interval: Interval, start: number, end: number): Promise<Candle[]> {
+  const step = intervals[interval];
+  if (!step) throw new Error('Geçersiz zaman dilimi.');
+  const from = Math.ceil(start / step) * step,
+    to = Math.min(
+      Math.floor(end / step) * step,
+      Math.floor(Date.now() / 1000 / step) * step - step,
+    );
+  const count = Math.floor((to - from) / step) + 1;
+  if (count <= 0) throw new Error('Bu aralıkta kapanmış mum yok.');
+  if (count > 50000) throw new Error('En fazla 50.000 mum indirilebilir.');
+  const read = () =>
+    db
+      .prepare(
+        'SELECT time,open,high,low,close,volume FROM candles WHERE interval=? AND time>=? AND time<=? ORDER BY time',
+      )
+      .all(interval, from, to) as unknown as Candle[];
+  const existing = read();
+  if (existing.length === count) return existing;
+  const known = new Set(existing.map((b) => b.time));
+  const insert = db.prepare('INSERT OR REPLACE INTO candles VALUES(?,?,?,?,?,?,?)');
+  let cursor = from;
+  while (cursor <= to) {
+    if (known.has(cursor)) {
+      cursor += step;
+      continue;
+    }
+    const rows = (await binance('klines', {
+      interval,
+      startTime: String(cursor * 1000),
+      endTime: String((to + step) * 1000 - 1),
+      limit: '1000',
+    })) as unknown[][];
+    if (!Array.isArray(rows) || !rows.length) break;
+    db.exec('BEGIN');
+    try {
+      for (const row of rows) {
+        const time = Number(row[0]) / 1000;
+        if (time >= from && time <= to) {
+          const values = [
+            Number(row[1]),
+            Number(row[2]),
+            Number(row[3]),
+            Number(row[4]),
+            Number(row[5]),
+          ];
+          if (!values.every(Number.isFinite))
+            throw new Error('Veri sağlayıcı geçersiz mum döndürdü.');
+          insert.run(interval, time, ...values);
+        }
+      }
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
+    const next = Number(rows.at(-1)![0]) / 1000 + step;
+    if (next <= cursor) throw new Error('Veri sayfalaması ilerleyemedi.');
+    cursor = next;
+    if (cursor <= to) await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  const result = read();
+  if (result.length !== count)
+    throw new Error(
+      `Eksik tarihsel veri: ${count} mumdan ${result.length} tanesi mevcut. Tarih aralığını kontrol edin.`,
+    );
+  return result;
+}

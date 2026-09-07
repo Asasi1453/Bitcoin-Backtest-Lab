@@ -1,0 +1,110 @@
+export const intervals = {
+  '1m': 60,
+  '5m': 300,
+  '15m': 900,
+  '1h': 3600,
+  '4h': 14400,
+  '1d': 86400,
+} as const;
+export type Interval = keyof typeof intervals;
+export type Mode = 'live' | 'demo';
+export type Strategy = 'sma' | 'rsi' | 'breakout' | 'custom';
+export interface Candle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+export interface Config {
+  strategy: Strategy;
+  custom?: CustomStrategy;
+  interval: Interval;
+  start: string;
+  end: string;
+  capital: number;
+  allocation: number;
+  fee: number;
+  slippage: number;
+  stopLoss: number;
+  takeProfit: number;
+  fast: number;
+  slow: number;
+  rsiPeriod: number;
+  rsiBuy: number;
+  rsiSell: number;
+  lookback: number;
+  mode: Mode;
+}
+export interface Trade {
+  id: number;
+  entryTime: number;
+  exitTime: number;
+  entry: number;
+  exit: number;
+  quantity: number;
+  fees: number;
+  pnl: number;
+  returnPct: number;
+  reason: string;
+}
+export interface EquityPoint {
+  time: number;
+  value: number;
+  benchmark: number;
+  drawdown: number;
+}
+export interface Result {
+  id: string;
+  createdAt: string;
+  config: Config;
+  source: string;
+  candleCount: number;
+  start: number;
+  end: number;
+  trades: Trade[];
+  equity: EquityPoint[];
+  metrics: {
+    netProfit: number;
+    returnPct: number;
+    benchmarkPct: number;
+    maxDrawdown: number;
+    winRate: number;
+    profitFactor: number | null;
+    sharpe: number | null;
+    totalFees: number;
+    finalEquity: number;
+  };
+}
+export const strategyNames: Record<Strategy, string> = {
+  sma: 'Hareketli Ortalama Kesişimi',
+  rsi: 'RSI Ortalamaya Dönüş',
+  breakout: 'Donchian Kanal Kırılımı',
+  custom: 'Özel Mum Stratejisi',
+};
+export function strategyLabel(config: Config): string {
+  return config.strategy === 'custom' && config.custom
+    ? config.custom.name
+    : strategyNames[config.strategy];
+}
+export const defaultConfig: Config = {
+  strategy: 'sma',
+  interval: '1h',
+  start: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
+  end: new Date().toISOString().slice(0, 10),
+  capital: 10000,
+  allocation: 95,
+  fee: 0.1,
+  slippage: 0.05,
+  stopLoss: 3,
+  takeProfit: 6,
+  fast: 9,
+  slow: 21,
+  rsiPeriod: 14,
+  rsiBuy: 30,
+  rsiSell: 70,
+  lookback: 20,
+  mode: 'live',
+};
+import type { CustomStrategy } from './candle-rules';

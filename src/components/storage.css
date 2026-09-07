@@ -1,0 +1,184 @@
+.backup-panel {
+  margin-bottom: 24px;
+}
+.backup-body {
+  padding: 23px;
+}
+.backup-body > p {
+  font-size: 12px;
+  color: #93a0b3;
+  line-height: 1.9;
+  max-width: 850px;
+}
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0 13px;
+}
+.backup-body > small {
+  display: block;
+  font-size: 10px;
+  color: #708199;
+  line-height: 1.8;
+}
+.backup-preview {
+  border: 1px solid #3b453e;
+  background: #1b241e66;
+  padding: 19px;
+  border-radius: 6px;
+  margin-top: 23px;
+}
+.backup-file {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: #cdb888;
+}
+.backup-file > div {
+  min-width: 0;
+}
+.backup-file strong {
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.backup-file small {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #8b9b92;
+}
+.backup-file > button {
+  margin-left: auto;
+}
+.backup-file > svg {
+  flex-shrink: 0;
+}
+.backup-counts {
+  display: flex;
+  gap: 35px;
+  margin: 22px 0;
+}
+.backup-counts span {
+  color: #91a79a;
+  font-size: 11px;
+}
+.backup-counts b {
+  font-size: 22px;
+  display: block;
+  color: #c5dbce;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.backup-preview > p {
+  font-size: 11px;
+  color: #8ba093;
+  line-height: 1.8;
+  margin-bottom: 18px;
+}
+.backup-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #8ec9aa;
+  font-size: 11px;
+  line-height: 1.8;
+  margin-top: 19px;
+}
+.backup-success svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.backup-body > .error-notice {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+.history-actions,
+.report-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.danger-button {
+  color: #e6a2a8;
+  background: #68303926;
+  border: 1px solid #73404a80;
+  border-radius: 5px;
+  font-size: 11px;
+  min-height: 33px;
+  padding: 0 12px;
+}
+.icon-button.danger {
+  color: #bd7a86;
+}
+.history-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 17px;
+  border-bottom: 1px solid var(--border);
+}
+.delete-description {
+  color: #969fb1;
+  line-height: 1.9;
+  font-size: 12px;
+}
+.delete-list {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 12px 12px 12px 30px;
+  max-height: 190px;
+  overflow: auto;
+  line-height: 1.9;
+  font-size: 11px;
+  color: #bcc5d5;
+  margin: 17px 0;
+}
+.delete-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.delete-actions .danger-button {
+  min-height: 38px;
+}
+@media (max-width: 600px) {
+  .backup-body {
+    padding: 17px;
+  }
+  .backup-body > p {
+    font-size: 11px;
+  }
+  .backup-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .backup-actions button {
+    font-size: 11px;
+  }
+  .backup-preview {
+    padding: 14px;
+  }
+  .backup-counts {
+    gap: 24px;
+  }
+  .backup-counts b {
+    font-size: 20px;
+  }
+  .history-actions {
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .history-actions .danger-button {
+    font-size: 9px;
+    padding: 0 8px;
+  }
+  .history-actions .secondary {
+    font-size: 9px;
+  }
+  .history-actions + h2 {
+    font-size: 11px;
+  }
+}
