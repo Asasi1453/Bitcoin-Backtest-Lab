@@ -5,6 +5,8 @@ import { binance, db, getCandles } from './market';
 import { backtest, validateConfig } from '../shared/engine';
 import { demoCandles } from '../shared/demo';
 import { intervals, type Config, type Interval, type Result } from '../shared/types';
+import { runPython } from './python';
+import { localAccess } from './local-access';
 import {
   deleteReports,
   exportBackup,
@@ -13,6 +15,7 @@ import {
   writeWorkspace,
 } from './storage';
 const app = express();
+app.use('/api', localAccess);
 // Larger parsers are scoped to portable backups and the local strategy library.
 app.post('/api/backup/import', express.json({ limit: '100mb' }), (req, res, next) => {
   try {
@@ -30,7 +33,7 @@ app.put('/api/workspace', express.json({ limit: '10mb' }), (req, res, next) => {
     next(e);
   }
 });
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '512kb' }));
 app.use('/api', (_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
@@ -104,6 +107,21 @@ app.get('/api/backtests/:id', (req, res) => {
   res.type('json').send(row.payload);
 });
 let running = false;
+app.post('/api/python/validate', async (req, res, next) => {
+  if (running) {
+    res.status(409).json({ error: 'Bir test veya kod kontrolü zaten çalışıyor.' });
+    return;
+  }
+  running = true;
+  try {
+    await runPython(req.body, null);
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  } finally {
+    running = false;
+  }
+});
 app.post('/api/backtests', async (req, res, next) => {
   if (running) {
     res.status(409).json({ error: 'Bir test zaten çalışıyor. Tamamlanmasını bekleyin.' });
@@ -123,7 +141,9 @@ app.post('/api/backtests', async (req, res, next) => {
       config.mode === 'demo'
         ? demoCandles(config.interval, start, end)
         : await getCandles(config.interval, start, end);
-    const result = backtest(candles, config);
+    const signals =
+      config.strategy === 'python' ? await runPython(config.python!, candles) : undefined;
+    const result = backtest(candles, config, signals);
     db.prepare('INSERT INTO backtests VALUES(?,?,?)').run(
       result.id,
       result.createdAt,

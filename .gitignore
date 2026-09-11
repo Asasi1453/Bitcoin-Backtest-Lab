@@ -8,3 +8,5 @@ data/*.sqlite*
 *.log
 test-results/
 playwright-report/
+__pycache__/
+*.pyc

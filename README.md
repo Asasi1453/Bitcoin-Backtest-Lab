@@ -44,6 +44,7 @@ Bu modda arayüz ve API birlikte **http://127.0.0.1:3001** üzerinden sunulur. `
 - Tarih aralığına göre sayfalı geçmiş veri indirme, veri eksikliği kontrolü ve SQLite önbelleği.
 - SMA kesişimi, Wilder RSI ortalamaya dönüş ve Donchian kanal kırılımı stratejileri.
 - Özel mum stratejisi editörü: fiyat, gövde, fitil, yüzde ve hacim koşulları; ayrı giriş/çıkış grupları ve kaydedilebilir formasyonlar.
+- Python Strateji Atölyesi: `.py` yükleme, kod düzenleme, sözdizimi kontrolü, yerel şablon kaydı ve Python sinyalleriyle backtest.
 - Sermaye, pozisyon oranı, iki yönlü komisyon/kayma, stop-loss ve take-profit ayarları.
 - Net getiri, al & tut, maksimum düşüş, kazanma oranı, kâr faktörü, yıllık Sharpe, toplam ücretler.
 - Sermaye/düşüş grafikleri, sayfalı işlem dökümü, CSV dışa aktarımı.
@@ -108,7 +109,44 @@ Likidite, kısmi dolumlar, miktar/fiyat adımları, piyasa etkisi, vadeli işlem
 - `DATABASE_PATH`: alternatif SQLite dosyası. Klasörünün mevcut olması gerekir.
 - Şablonlar ve tercihler aynı SQLite dosyasının `workspace` tablosunda tutulur. Önceki sürümden kalan `localStorage` şablonları ilk açılışta SQLite içine birleştirilir; başarılı kayıttan sonra eski anahtarlar kaldırılır.
 
-Uygulama `127.0.0.1` üzerinde tek kullanıcıya yönelik yerel çalışma alanıdır. İnternete açık çok kullanıcılı dağıtım için kimlik doğrulama, kullanıcı bazlı veri ayrımı ve kalıcı iş kuyruğu eklenmelidir. Özel stratejiler görsel mum kurallarıyla tanımlanır; hesaplar, bulut senkronizasyonu, kullanıcı Python/JavaScript kodu çalıştırma veya otomatik parametre optimizasyonu bulunmaz.
+Uygulama `127.0.0.1` üzerinde tek kullanıcıya yönelik yerel çalışma alanıdır. Hesaplar, bulut senkronizasyonu, JavaScript kodu çalıştırma veya otomatik parametre optimizasyonu bulunmaz. Python çalıştırıcısı güvenilen yerel kod içindir; internete açık çok kullanıcılı dağıtım için uygun değildir.
+
+## Python stratejisi yükleme
+
+**Stratejiler → Python stratejisi yükle** veya **Backtest Terminali → Strateji → Python Stratejisi → Python kodunu yükle / düzenle** alanını açın.
+
+1. `.py` dosyanızı seçin veya kodu editöre yapıştırın. En fazla 64 KB UTF-8 kaynak kodu kabul edilir. **Örnek .py indir** ile çalışan bir yutan mum stratejisi alın.
+2. **Sözdizimini kontrol et**, Python kodunu çalıştırmadan sözdizimini ve `on_candle` tanımını kontrol eder. Çalışma zamanı hataları backtestte gösterilir.
+3. **Kaydet ve kullan**, kodu ve mevcut test ayarlarını yerel SQLite şablon kütüphanesine kaydeder. Değiştirilmiş sürüm yeni şablon olarak eklenir; eskisi korunur.
+4. Zaman dilimini (örneğin **1m**), tarihleri ve risk ayarlarını seçip **Backtest Başlat** düğmesine basın. Test raporu kullanılan kodun kopyasını içerir. Rapor içindeki **Test edilen Python kodu** bölümünden inceleyebilirsiniz.
+
+Fonksiyon arayüzü:
+
+```python
+def on_candle(candles, state):
+    if len(candles) < 2:
+        return "hold"
+    previous, current = candles[-2], candles[-1]
+    if current["close"] > previous["high"]:
+        return "buy"
+    if current["close"] < previous["low"]:
+        return "sell"
+    return "hold"
+```
+
+- `candles`, o ana kadar kapanmış mumların salt okunur sıralı görünümüdür; indeksleme, dilimleme, döngü ve `len()` desteklenir. Fonksiyona gelecek mumlar verilmez. Her mumda `time` (UTC Unix saniyesi), `open`, `high`, `low`, `close`, `volume` (BTC) alanları bulunur.
+- Fonksiyon her mum için çağrılır; göstergelerinizin ısınma süresini kendi kodunuzda kontrol edin. Son mumdaki sinyal için sonraki mum bulunmadığından yeni işlem açılmaz.
+- `state`, test başında boş olan ve çağrılar arasında korunan sözlüktür. Kendi hesaplamalarınızı saklayın. Gerçek portföy veya açık pozisyon bilgisi değildir; pozisyon açıldığını varsayan sayaçlar stop-loss/take-profit ile uyuşmayabilir.
+- `"buy"` long giriş, `"sell"` long çıkış, `"hold"` veya `None` bekleme sinyalidir. İşlemler sonraki mumun açılışında gerçekleşir. Açık pozisyonda alım ve boş portföyde satış yok sayılır. Short ve pozisyon artırma desteklenmez.
+- Komisyon, kayma, sermaye, stop-loss, take-profit ve test sonu kapanışı ortak backtest motorundan uygulanır. Backtrader gibi başka bir framework için yazılmış dosyalar `on_candle` arayüzüne uyarlanmalıdır.
+
+Python **3.9+** gerekir. Varsayılan komut `python3`; farklı yorumlayıcı veya sanal ortam için sunucuyu `BTC_PYTHON=/tam/yol/.venv/bin/python npm run dev` ile başlatın. Ek paketler otomatik yüklenmez; gerekiyorsa seçtiğiniz ortama kendiniz kurun. Kullanıcının site-packages dizini `-I` nedeniyle yüklenmez; paketler seçilen sanal ortamda kurulu olmalıdır. [Python isolated mode belgesi](https://docs.python.org/3/using/cmdline.html#cmdoption-I).
+
+**Yalnızca güvendiğiniz kodu çalıştırın.** Python ayrı süreçte çalışır ancak bir güvenlik sandbox'ı değildir: kullanıcı yetkileriyle dosyalara ve ağa erişebilir. Kod yüklemek, yedek içe aktarmak ve sözdizimi kontrolü kodu çalıştırmaz; **Backtest Başlat** çalıştırır. Ortam değişkenlerindeki uygulama sırları alt sürece aktarılmaz. API dış site Origin/Host isteklerini reddeder; bu kontroller kullanıcı kimlik doğrulamasının yerini tutmaz.
+
+Çalıştırma 15 saniye, kaynak kodu 64 KB, süreç çıktısı 2 MB, `print` günlükleri 16 KB ile sınırlıdır. Günlükler rapora eklenmez. Linux'ta süreç adres alanı ayrıca 512 MB ile sınırlandırılır; macOS/Windows'ta aynı bellek sınırı uygulanmaz. Süre sınırı için hesabı optimize edin veya tarih aralığını daraltın.
+
+Python kaynakları şablon ve raporlarla birlikte **Veri Merkezi** yedeklerine dahil edilir. Başka bilgisayarda güncel platform kodu, Python ve gerekli paketlerle aynı yedeği içe aktarabilirsiniz. Kodunuzu içeren yedekleri paylaşmadan önce inceleyin; gizli anahtarları stratejilere yazmayın. Eski platform sürümleri Python stratejisi içeren yedekleri açamaz; önce uygulamayı güncelleyin.
 
 ## Test geçmişini silme ve başka bilgisayara taşıma
 

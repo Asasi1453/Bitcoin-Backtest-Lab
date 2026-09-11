@@ -8,7 +8,7 @@ export const intervals = {
 } as const;
 export type Interval = keyof typeof intervals;
 export type Mode = 'live' | 'demo';
-export type Strategy = 'sma' | 'rsi' | 'breakout' | 'custom';
+export type Strategy = 'sma' | 'rsi' | 'breakout' | 'custom' | 'python';
 export interface Candle {
   time: number;
   open: number;
@@ -20,6 +20,7 @@ export interface Candle {
 export interface Config {
   strategy: Strategy;
   custom?: CustomStrategy;
+  python?: import('./python-strategy').PythonStrategy;
   interval: Interval;
   start: string;
   end: string;
@@ -82,8 +83,10 @@ export const strategyNames: Record<Strategy, string> = {
   rsi: 'RSI Ortalamaya Dönüş',
   breakout: 'Donchian Kanal Kırılımı',
   custom: 'Özel Mum Stratejisi',
+  python: 'Python Stratejisi',
 };
 export function strategyLabel(config: Config): string {
+  if (config.strategy === 'python' && config.python) return config.python.name;
   return config.strategy === 'custom' && config.custom
     ? config.custom.name
     : strategyNames[config.strategy];

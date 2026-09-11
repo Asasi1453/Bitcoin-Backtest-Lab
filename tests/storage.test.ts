@@ -5,6 +5,7 @@ import { defaultConfig } from '../shared/types';
 import { patternStrategy } from '../shared/candle-rules';
 import { validateBackup, type Backup } from '../shared/backup';
 import { emptyWorkspace } from '../shared/workspace';
+import { examplePython } from '../shared/python-strategy';
 let market: typeof import('../server/market'), storage: typeof import('../server/storage');
 beforeEach(async () => {
   vi.resetModules();
@@ -41,6 +42,29 @@ function fixture(): Backup {
   };
 }
 describe('Portable local storage', () => {
+  it('round-trips Python source in presets and reports without executing imported code', () => {
+    const backup = fixture();
+    const config = {
+      ...backup.backtests[0].config,
+      strategy: 'python' as const,
+      python: {
+        ...examplePython,
+        source: "raise RuntimeError('Do not execute on import')\n" + examplePython.source,
+      },
+    };
+    backup.backtests = [
+      backtest(
+        backup.candles,
+        config,
+        backup.candles.map(() => 'hold'),
+      ),
+    ];
+    backup.workspace.presets = [{ name: 'Python yedeği', config }];
+    storage.importBackup(backup);
+    const restored = storage.exportBackup();
+    expect(restored.backtests).toEqual(backup.backtests);
+    expect(restored.workspace).toEqual(backup.workspace);
+  });
   it('round-trips candles, full reports, custom rules, presets and defaults', () => {
     const backup = fixture();
     expect(() => validateBackup(backup)).not.toThrow();

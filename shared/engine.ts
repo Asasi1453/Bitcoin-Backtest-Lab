@@ -7,11 +7,12 @@ import {
   type EquityPoint,
 } from './types';
 import { customLookback, matchesGroup, validateCustomStrategy } from './candle-rules';
+import { validatePythonStrategy, type PythonSignal } from './python-strategy';
 
 export function validateConfig(c: Config) {
   if (
     !c ||
-    !['sma', 'rsi', 'breakout', 'custom'].includes(c.strategy) ||
+    !['sma', 'rsi', 'breakout', 'custom', 'python'].includes(c.strategy) ||
     !Object.hasOwn(intervals, c.interval) ||
     !['live', 'demo'].includes(c.mode)
   )
@@ -40,6 +41,7 @@ export function validateConfig(c: Config) {
   if (c.strategy === 'sma' && c.fast >= c.slow)
     throw new Error('Hızlı ortalama, yavaş ortalamadan küçük olmalı.');
   if (c.strategy === 'custom' || c.custom !== undefined) validateCustomStrategy(c.custom);
+  if (c.strategy === 'python' || c.python !== undefined) validatePythonStrategy(c.python);
   const start = Date.parse(c.start + 'T00:00:00Z'),
     end = Date.parse(c.end + 'T23:59:59Z');
   if (
@@ -83,17 +85,30 @@ export function rsi(values: number[], period: number): (number | null)[] {
   }
   return out;
 }
-export function backtest(candles: Candle[], config: Config): Result {
+export function backtest(
+  candles: Candle[],
+  config: Config,
+  pythonSignals?: PythonSignal[],
+): Result {
   validateConfig(config);
+  if (
+    config.strategy === 'python' &&
+    (!pythonSignals ||
+      pythonSignals.length !== candles.length ||
+      pythonSignals.some((s) => !['buy', 'sell', 'hold'].includes(s)))
+  )
+    throw new Error('Python sinyalleri eksik veya geçersiz.');
   const c = config,
     warmup =
-      c.strategy === 'custom'
-        ? customLookback(c.custom!)
-        : c.strategy === 'sma'
-          ? c.slow
-          : c.strategy === 'rsi'
-            ? c.rsiPeriod
-            : c.lookback;
+      c.strategy === 'python'
+        ? 0
+        : c.strategy === 'custom'
+          ? customLookback(c.custom!)
+          : c.strategy === 'sma'
+            ? c.slow
+            : c.strategy === 'rsi'
+              ? c.rsiPeriod
+              : c.lookback;
   if (candles.length < warmup + 3)
     throw new Error(`En az ${warmup + 3} kapanmış mum gerekli. Tarih aralığını genişletin.`);
   candles.forEach((b, i) => {
@@ -154,6 +169,10 @@ export function backtest(candles: Candle[], config: Config): Result {
     let buy = false,
       sell = false;
     if (j >= warmup) {
+      if (c.strategy === 'python') {
+        buy = pythonSignals![j] === 'buy';
+        sell = pythonSignals![j] === 'sell';
+      }
       if (c.strategy === 'custom') {
         sell = matchesGroup(candles, j, c.custom!.exit);
         buy = !sell && matchesGroup(candles, j, c.custom!.entry);
@@ -180,7 +199,12 @@ export function backtest(candles: Candle[], config: Config): Result {
         close(b.open, b.time, 'Take-profit (fiyat boşluğu)');
       else if (sell) close(b.open, b.time, 'Strateji sinyali');
     }
-    if (!position && buy && i < candles.length - 1 && (c.strategy !== 'custom' || !wasInPosition)) {
+    if (
+      !position &&
+      buy &&
+      i < candles.length - 1 &&
+      (!['custom', 'python'].includes(c.strategy) || !wasInPosition)
+    ) {
       const budget = (cash * c.allocation) / 100,
         entry = b.open * (1 + slip),
         quantity = budget / (entry * (1 + fee)),

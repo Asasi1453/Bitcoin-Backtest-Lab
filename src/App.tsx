@@ -53,6 +53,8 @@ import { PriceChart, EquityChart } from './components/Chart';
 import { validateConfig } from '../shared/engine';
 import { patternStrategy, ruleText } from '../shared/candle-rules';
 import { CustomStrategyEditor } from './components/CustomStrategyEditor';
+import { PythonStrategyEditor } from './components/PythonStrategyEditor';
+import { examplePython } from '../shared/python-strategy';
 import { BackupPanel } from './components/BackupPanel';
 import {
   emptyWorkspace,
@@ -85,6 +87,7 @@ const descriptions: Record<Strategy, string> = {
   rsi: 'Aşırı satım bölgelerinde giriş, aşırı alım bölgelerinde çıkış yapın.',
   breakout: 'Önceki mumların fiyat kanalını aşan hareketleri yakalayın.',
   custom: 'Gövde, fitil, fiyat ve hacim ilişkileriyle kendi mum formasyonunuzu tanımlayın.',
+  python: 'Python dosyanı yükle, kendi sinyallerini üret ve mevcut risk ayarlarıyla test et.',
 };
 function App() {
   const [page, setPage] = useState<Page>('dashboard'),
@@ -104,6 +107,7 @@ function App() {
     [tab, setTab] = useState<'equity' | 'drawdown' | 'trades'>('equity'),
     [modal, setModal] = useState<'settings' | 'help' | 'save' | null>(null),
     [customEditor, setCustomEditor] = useState(false),
+    [pythonEditor, setPythonEditor] = useState(false),
     [preferences, setPreferences] = useState<Preferences>({}),
     [workspaceReady, setWorkspaceReady] = useState(false),
     [workspaceSaving, setWorkspaceSaving] = useState(false),
@@ -374,6 +378,7 @@ function App() {
                   ...(strategy === 'custom'
                     ? { custom: c.custom ?? patternStrategy('engulfing') }
                     : {}),
+                  ...(strategy === 'python' ? { python: c.python ?? { ...examplePython } } : {}),
                 }));
               }}
             >
@@ -431,7 +436,19 @@ function App() {
         <div
           className={'form-grid' + (config.strategy === 'custom' ? ' custom-parameter-grid' : '')}
         >
-          {config.strategy === 'custom' ? (
+          {config.strategy === 'python' ? (
+            <div className="custom-strategy-summary">
+              <span className="tiny-badge amber">PYTHON</span>
+              <strong>{config.python?.name ?? 'Python Stratejisi'}</strong>
+              <button className="secondary" onClick={() => setPythonEditor(true)}>
+                Python kodunu yükle / düzenle <ArrowRight size={14} />
+              </button>
+              <p className="python-notice">
+                Backtest kodu bilgisayarında çalıştırır. Yalnızca güvendiğin Python kodlarını
+                kullan.
+              </p>
+            </div>
+          ) : config.strategy === 'custom' ? (
             <div className="custom-strategy-summary">
               <span className="tiny-badge amber">MUM KURALLARI</span>
               <strong>{config.custom?.name ?? 'Özel Mum Stratejisi'}</strong>
@@ -564,6 +581,12 @@ function App() {
                   )}
                 </div>
               ))}
+            </details>
+          )}
+          {result.config.strategy === 'python' && result.config.python && (
+            <details className="report-rules">
+              <summary>Test edilen Python kodu</summary>
+              <pre className="python-report-code">{result.config.python.source}</pre>
             </details>
           )}
         </>
@@ -1020,7 +1043,9 @@ function App() {
             <>
               <div className="section-title">
                 <h2>Strateji Kütüphanesi</h2>
-                <span className="muted">3 hazır strateji + özel mum kuralları · Spot / Long</span>
+                <span className="muted">
+                  Hazır stratejiler · Mum kuralları · Python · Spot / Long
+                </span>
               </div>
               <section className="panel custom-library-card">
                 <div className="heading-icon">
@@ -1042,6 +1067,19 @@ function App() {
                 >
                   <Plus size={15} />
                   Özel strateji oluştur
+                </button>
+              </section>
+              <section className="panel custom-library-card">
+                <div>
+                  <h2>Python Strateji Atölyesi</h2>
+                  <p>
+                    .py dosyanı yükle veya kodunu yapıştır. Mum formasyonlarını ve kendi
+                    hesaplamalarını backtestte kullan.
+                  </p>
+                </div>
+                <button className="primary" onClick={() => setPythonEditor(true)}>
+                  <Plus size={15} />
+                  Python stratejisi yükle
                 </button>
               </section>
               <div className="strategy-cards">
@@ -1508,6 +1546,30 @@ function App() {
             </div>
           </section>
         </div>
+      )}
+      {pythonEditor && (
+        <PythonStrategyEditor
+          value={config.python ?? examplePython}
+          ready={workspaceReady && !workspaceSaving}
+          onClose={() => setPythonEditor(false)}
+          onApply={async (python) => {
+            const next: Config = { ...config, mode, strategy: 'python', python };
+            const exists = presets.some(
+              (p) =>
+                p.config.strategy === 'python' &&
+                p.name === python.name &&
+                JSON.stringify(p.config) === JSON.stringify(next),
+            );
+            await saveWorkspace({
+              presets: exists ? presets : [...presets, { name: python.name, config: next }],
+              defaults: preferences,
+            });
+            setConfig(next);
+            setPythonEditor(false);
+            go('backtest');
+            setToast('Python stratejisi yerel kütüphaneye kaydedildi. Backtesti başlatabilirsin.');
+          }}
+        />
       )}
       {customEditor && (
         <CustomStrategyEditor
