@@ -1,10 +1,12 @@
 # Bitcoin Backtest Lab
 
+[English research overview](README.en.md)
+
 Türkçe arayüzlü, yerel çalışan BTC/USDT araştırma ve backtest platformu.
 
 ## GitHub deposu ve başlangıç verileri
 
-Depo: `Asasi1453/Bitcoin-Backtest-Lab` (private).
+Depo: [Asasi1453/Bitcoin-Backtest-Lab](https://github.com/Asasi1453/Bitcoin-Backtest-Lab).
 
 ```sh
 git clone https://github.com/Asasi1453/Bitcoin-Backtest-Lab.git
